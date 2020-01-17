@@ -127,7 +127,7 @@ class SpSession:
         '''
         # Build REST call
         rest_call = f"{self.site}/_api/web/GetFolderByServerRelativeUrl('{quote(folder)}')/Files('{quote(file)}')/$value"
-            
+
         # Make the call
         try:
             
@@ -192,6 +192,12 @@ class SpSession:
         # If a list of files was provided then filter it. 
         if files:
             file_list = list(set(file_list) & set(files))
+        
+        # Report if files don't exist
+        dne = [f for f in files if f not in file_list]
+
+        for f in dne:
+            logging.warning(f'File {f} does not exist in folder {folder}')
  
         # If extensions were provided then filter it
         if extensions:
@@ -216,7 +222,7 @@ class SpSession:
             self.logger.warning(file)
             yield self.get_file(folder,file, output_location=output_location)
 
-    def upload_file(self, file, folder, overwrite=True):
+    def upload_file(self, folder, file, data=None, overwrite=True):
         ''' Upload a file to a specified sharepoint folder. 
             Default behaivor is to overwrite, but overwrite protection can
             be turned off by switching overwrite to false
@@ -226,13 +232,23 @@ class SpSession:
         if not isinstance(overwrite, (bool, str)):
             raise ValueError('overwrite must be instance of bool')
 
-        # Check if the file to post exists, raise error if it doesn't
-        if os.path.exists(file):
-            filepath, filename = os.path.split(file)
-            with open(file, 'rb') as f:
-                data = f.read()
+        # If a data object was provided, read it. 
+        if hasattr(data, 'read'):
+            payload = data.read()
+            filename = file
+        # If data object was already bytes, use it
+        elif isinstance(data, bytes):
+            payload = data
+            filename = file
+        # Otherwise read the file name provided
         else:
-            raise FileNotFoundError(f'File {filepath} does not exist')
+            # Check if the file to post exists, raise error if it doesn't
+            if os.path.exists(file):
+                filepath, filename = os.path.split(file)
+                with open(file, 'rb') as f:
+                    payload = f.read()
+            else:
+                raise FileNotFoundError(f'File {file} does not exist')
 
         # build the rest call
         rest_call = f"{self.site}/_api/web/GetFolderByServerRelativeUrl('{quote(folder)}')" +\
@@ -246,7 +262,7 @@ class SpSession:
             self.digest = r.json()['d']['GetContextWebInformation']['FormDigestValue']
 
         # Update the header with the digest
-        opts = {'data': data, 'headers': {'x-requestdigest' :self.digest}}
+        opts = {'data': payload, 'headers': {'x-requestdigest' :self.digest}}
 
         r = self.retry_loop(self.session.post(rest_call, **opts), **opts)
 

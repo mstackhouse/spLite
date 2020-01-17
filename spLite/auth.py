@@ -52,7 +52,7 @@ class AuthContext:
 
 class SamlTokenProvider:
     ''' Basically a reconstruction of the code in the repository
-                https://github.com/vgrem/Office365-REST-Python-Client
+            https://github.com/vgrem/Office365-REST-Python-Client
         They were gracious enough to use an MIT license. 
         Their library is much more extensive and supports a lot more features, whereas
         the purpose of this library is meant to be a great simplication. Please refer
